@@ -11,9 +11,11 @@ ARG ARCH
 RUN apt-get update -y && apt-get install -y \
     wget \
     sudo \
-    libmemcached-dev \
+    # For compiling python memcached module.
+    zlib1g-dev libmemcached-dev \
     python3 \
-    python3-setuptools
+    python3-setuptools \
+    python3-pip
 
 # Get seafile
 WORKDIR /seafile
@@ -25,8 +27,6 @@ RUN wget -c https://github.com/haiwen/seafile-rpi/releases/download/v${SEAFILE_V
 RUN python3 -m pip install --target seafile-server-${SERVER_VERSION}/seahub/thirdpart --upgrade pip && \
     # For compiling memcache pip module
     python3 -m pip install --target seafile-server-${SERVER_VERSION}/seahub/thirdpart --timeout=3600 --upgrade \
-    django==2.2.* \
-    psd-tools \
     # Memcached
     pylibmc django-pylibmc
     # moviepy \
@@ -38,7 +38,7 @@ RUN find /seafile/ \( -name "liblber-*" -o -name "libldap-*" -o -name "libldap_r
 # Prepare media folder to be exposed
 RUN mv seafile-server-${SEAFILE_VERSION}/seahub/media . && echo "${SEAFILE_VERSION}" > ./media/version
 
-FROM debian:${SYSTEM}
+FROM debian:${SYSTEM} AS seafile
 
 ARG SEAFILE_VERSION
 
