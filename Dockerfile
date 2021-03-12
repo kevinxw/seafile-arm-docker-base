@@ -15,7 +15,7 @@ RUN apt-get update -y && apt-get install -y \
 # Get seafile
 WORKDIR /seafile
 
-RUN wget -c https://github.com/haiwen/seafile-rpi/releases/download/v8.0.3/seafile-server-${SEAFILE_VERSION}-${SYSTEM}-${ARCH}.tar.gz -O seafile-server.tar.gz && \
+RUN wget -c https://github.com/haiwen/seafile-rpi/releases/download/v${SEAFILE_VERSION}/seafile-server-${SEAFILE_VERSION}-${SYSTEM}-${ARCH}.tar.gz -O seafile-server.tar.gz && \
     tar -zxvf seafile-server.tar.gz && \
     rm -f seafile-server.tar.gz
 
@@ -24,46 +24,63 @@ RUN find /seafile/ \( -name "liblber-*" -o -name "libldap-*" -o -name "libldap_r
 
 # Python3
 RUN apt-get install -y python3 python3-pip python3-setuptools
-RUN python3 -m pip install --upgrade pip && rm -r /root/.cache/pip
+RUN python3 -m pip install --upgrade pip
 
 # For building memcache library.
-RUN apt-get install -y libmemcached-dev
-
-RUN apt-get install -y libmariadbclient-dev
-
-# Additional dependencies
+RUN apt-get install -y libmemcached-dev zlib1g-dev
+# Install dependencies missing from stock seafile package.
 RUN pip3 install --timeout=3600 --target seafile-server-${SEAFILE_VERSION}/seahub/thirdpart --upgrade \
-    click termcolor colorlog pymysql \
-    django==2.2.* moviepy \
-    future mysqlclient Pillow pylibmc captcha jinja2 \
-    sqlalchemy django-pylibmc django-simple-captcha pyjwt && \
-    rm -r /root/.cache/pip
+    # Restrict django version, in case pip upgrade it accidentally.
+    django==2.2.* \
+    # Dependency for memcache
+    pylibmc django-pylibmc \
+    psd-tools \
+    captcha django-simple-captcha
 
 # Fix import not found when running seafile
-RUN ln -s python3.7 seafile-server-${SEAFILE_VERSION}/seafile/lib/python3.6
+RUN ln -s python3 seafile-server-${SEAFILE_VERSION}/seafile/lib/python3.6
 
 # Prepare media folder to be exposed
-RUN mv seafile-server-${SEAFILE_VERSION}/seahub/media . && echo ${SEAFILE_VERSION} > ./media/version
+RUN mv seafile-server-${SEAFILE_VERSION}/seahub/media . && echo "${SEAFILE_VERSION}" > ./media/version
 
 FROM debian:${SYSTEM}
 
 ARG SEAFILE_VERSION
 
-# For suport set local time zone.
-RUN export DEBIAN_FRONTEND=noninteractive && apt-get install tzdata -y
+ENV LC_ALL=C
+# Set default timezone.
+ENV TZ=America/Los_Angeles
+ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && \
+    apt-get install --no-install-recommends --yes \
+    # For suport set local time zone.
+    tzdata \
     sudo \
     procps \
+    # For video thumbnail
+    # ffmpeg \
     libmariadbclient-dev \
     python3 \
-    python3-setuptools
+    python3-setuptools \
+    python3-ldap && \
+#    python3-pip && \
+#    python3 -m pip install --upgrade pip && \
+#    pip3 install --timeout=3600 --upgrade \
+#    pymysql \
+#    django==2.2.* \
+#    # pillow moviepy \
+#    future mysqlclient jinja2 \
+#    sqlalchemy && \
+#    apt-get remove -y python3-pip && \
+#    rm -rf /root/.cache/pip && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/seafile
 
-RUN useradd -ms /bin/bash -G sudo seafile \
-    && echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers \
-    && chown -R seafile:seafile /opt/seafile
+RUN useradd -ms /bin/bash -G sudo seafile && \
+    echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && \
+    chown -R seafile:seafile /opt/seafile
 
 COPY --from=builder --chown=seafile:seafile /seafile /opt/seafile
 
@@ -71,8 +88,6 @@ COPY docker_entrypoint.sh /
 COPY --chown=seafile:seafile scripts /home/seafile
 
 # Add version in container context
-ENV SEAFILE_VERSION ${SEAFILE_VERSION}
-
-ENV LC_ALL C
+ENV SEAFILE_VERSION=${SEAFILE_VERSION}
 
 CMD ["/docker_entrypoint.sh"]
