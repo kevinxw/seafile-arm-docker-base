@@ -10,12 +10,7 @@ ARG ARCH
 
 RUN apt-get update -y && apt-get install -y \
     wget \
-    sudo \
-    # For compiling python memcached module.
-    zlib1g-dev libmemcached-dev \
-    python3 \
-    python3-setuptools \
-    python3-pip
+    sudo
 
 # Get seafile
 WORKDIR /seafile
@@ -23,14 +18,6 @@ WORKDIR /seafile
 RUN wget -c https://github.com/haiwen/seafile-rpi/releases/download/v${SEAFILE_VERSION}/seafile-server-${SEAFILE_VERSION}-${SYSTEM}-${ARCH}.tar.gz -O seafile-server.tar.gz && \
     tar -zxvf seafile-server.tar.gz && \
     rm -f seafile-server.tar.gz
-
-RUN python3 -m pip install --target seafile-server-${SERVER_VERSION}/seahub/thirdpart --upgrade pip && \
-    # For compiling memcache pip module
-    python3 -m pip install --target seafile-server-${SERVER_VERSION}/seahub/thirdpart --timeout=3600 --upgrade \
-    # Memcached
-    pylibmc django-pylibmc
-    # moviepy \
-    # future mysqlclient jinja2 \
 
 # For using TLS connection to LDAP/AD server with docker-ce.
 RUN find /seafile/ \( -name "liblber-*" -o -name "libldap-*" -o -name "libldap_r*" -o -name "libsasl2.so*" \) -delete
@@ -56,14 +43,25 @@ RUN apt-get update && \
     # For video thumbnail
     ffmpeg \
     libmariadbclient-dev \
-    libmemcached11 \
+    # libmemcached11 \
+    # For compiling python memcached module.
+    zlib1g-dev libmemcached-dev \
     python3 \
     python3-setuptools \
     python3-ldap \
     python3-sqlalchemy \
+    python3-pip \
     # Mysql init script requirement only. Will probably be useless in the future
     python3-pymysql && \
     rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m pip install --upgrade pip && \
+    # For compiling memcache pip module
+    pip3 install --timeout=3600 --upgrade \
+    # Memcached
+    pylibmc django-pylibmc
+    # moviepy \
+    # future mysqlclient jinja2 \
 
 WORKDIR /opt/seafile
 
