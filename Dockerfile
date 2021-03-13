@@ -2,7 +2,7 @@ ARG SEAFILE_VERSION=8.0.3
 ARG SYSTEM=buster
 ARG ARCH=arm64v8
 
-FROM python:3-${SYSTEM} AS builder
+FROM debian:${SYSTEM} AS builder
 
 ARG SEAFILE_VERSION
 ARG SYSTEM
@@ -11,8 +11,8 @@ ARG ARCH
 # Get seafile
 WORKDIR /seafile
 
-#RUN apt-get update && apt-get install -y \
-#    wget
+RUN apt-get update && apt-get install -y \
+    wget
 
 RUN wget -c https://github.com/haiwen/seafile-rpi/releases/download/v${SEAFILE_VERSION}/seafile-server-${SEAFILE_VERSION}-${SYSTEM}-${ARCH}.tar.gz -O seafile-server.tar.gz && \
     tar -zxvf seafile-server.tar.gz && \
@@ -24,9 +24,12 @@ RUN find /seafile/ \( -name "liblber-*" -o -name "libldap-*" -o -name "libldap_r
 # Prepare media folder to be exposed
 RUN mv seafile-server-${SEAFILE_VERSION}/seahub/media . && echo "${SEAFILE_VERSION}" > ./media/version
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get install -y \
+    python3 \
+    python3-setuptools \
+    python3-pip \
     # For compiling python memcached module.
-    libmemcached-dev
+    zlib1g-dev libmemcached-dev
 
 # Additional dependencies
 RUN pip3 install --target seafile-server-${SEAFILE_VERSION}/seahub/thirdpart --upgrade \
@@ -37,7 +40,7 @@ RUN pip3 install --target seafile-server-${SEAFILE_VERSION}/seahub/thirdpart --u
 # Fix import not found when running seafile
 RUN ln -s /usr/bin/python3 seafile-server-${SEAFILE_VERSION}/seafile/lib/python3.6
 
-FROM debian:${SYSTEM}-slim AS seafile
+FROM debian:${SYSTEM} AS seafile
 
 ARG SEAFILE_VERSION
 
@@ -52,6 +55,7 @@ RUN apt-get update && \
     apt-get install --no-install-recommends -y \
     tzdata \
     sudo \
+    procps \
     # For video thumbnail
     ffmpeg \
     libmariadbclient-dev \
@@ -59,6 +63,7 @@ RUN apt-get update && \
     python3 \
     python3-setuptools \
     python3-pip \
+    python3-wheel \
     python3-ldap \
     python3-sqlalchemy \
     # Mysql init script requirement only. Will probably be useless in the future
