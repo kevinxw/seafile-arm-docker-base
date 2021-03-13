@@ -10,7 +10,9 @@ ARG ARCH
 
 RUN apt-get update -y && apt-get install -y \
     wget \
-    sudo
+    sudo \
+    # For compiling python memcached module.
+    zlib1g-dev libmemcached-dev
 
 # Get seafile
 WORKDIR /seafile
@@ -25,6 +27,15 @@ RUN find /seafile/ \( -name "liblber-*" -o -name "libldap-*" -o -name "libldap_r
 # Prepare media folder to be exposed
 RUN mv seafile-server-${SEAFILE_VERSION}/seahub/media . && echo "${SEAFILE_VERSION}" > ./media/version
 
+# Additional dependencies
+RUN python3 -m pip install --target seafile-server-${SEAFILE_VERSION}/seahub/thirdpart --upgrade \
+    # Memcached
+    pylibmc \
+    django-pylibmc
+
+# Fix import not found when running seafile
+RUN ln -s /usr/bin/python3 seafile-server-${SEAFILE_VERSION}/seafile/lib/python3.6
+
 FROM debian:${SYSTEM} AS seafile
 
 ARG SEAFILE_VERSION
@@ -35,7 +46,7 @@ ENV TZ=America/Los_Angeles
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-    apt-get install --no-install-recommends --yes \
+    apt-get install --no-install-recommends -y \
     # For suport set local time zone.
     tzdata \
     sudo \
@@ -43,9 +54,7 @@ RUN apt-get update && \
     # For video thumbnail
     ffmpeg \
     libmariadbclient-dev \
-    # libmemcached11 \
-    # For compiling python memcached module.
-    zlib1g-dev libmemcached-dev \
+    libmemcached11 \
     python3 \
     python3-setuptools \
     python3-ldap \
@@ -55,13 +64,10 @@ RUN apt-get update && \
     python3-pymysql && \
     rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m pip install --upgrade pip && \
-    # For compiling memcache pip module
-    pip3 install --timeout=3600 --upgrade \
-    # Memcached
-    pylibmc django-pylibmc
-    # moviepy \
-    # future mysqlclient jinja2 \
+RUN python3 -m pip install --upgrade pip && rm -r /root/.cache/pip
+RUN pip3 install --timeout=3600 --upgrade \
+    moviepy && \
+    rm -r /root/.cache/pip
 
 WORKDIR /opt/seafile
 
