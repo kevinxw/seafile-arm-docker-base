@@ -10,9 +10,7 @@ ARG ARCH
 
 RUN apt-get update -y && apt-get install -y \
     wget \
-    sudo \
-    # For compiling python memcached module.
-    zlib1g-dev libmemcached-dev
+    sudo
 
 # Get seafile
 WORKDIR /seafile
@@ -26,6 +24,13 @@ RUN find /seafile/ \( -name "liblber-*" -o -name "libldap-*" -o -name "libldap_r
 
 # Prepare media folder to be exposed
 RUN mv seafile-server-${SEAFILE_VERSION}/seahub/media . && echo "${SEAFILE_VERSION}" > ./media/version
+
+RUN apt-get install -y \
+    python3 \
+    python3-setuptools \
+    python3-pip \
+    # For compiling python memcached module.
+    zlib1g-dev libmemcached-dev
 
 # Additional dependencies
 RUN python3 -m pip install --target seafile-server-${SEAFILE_VERSION}/seahub/thirdpart --upgrade \
@@ -82,7 +87,5 @@ COPY --chown=seafile:seafile scripts /home/seafile
 ENV SEAFILE_VERSION=${SEAFILE_VERSION}
 
 COPY --from=builder --chown=seafile:seafile /seafile /opt/seafile
-# Fix import not found when running seafile
-RUN ln -s /usr/bin/python3 /opt/seafile/seafile-server-${SEAFILE_VERSION}/seafile/lib/python3.6
 
 CMD ["/docker_entrypoint.sh"]
